@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Tester</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full h-[95vh] flex flex-col">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-lg">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-lg font-semibold text-gray-800">🔌 WebSocket Tester</h2>
+                    <!-- WebSocket URL Input -->
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-gray-600">WebSocket URL:</label>
+                        <input 
+                            type="text" 
+                            id="wsUrl" 
+                            value="ws://localhost:8000/ws" 
+                            placeholder="ws://localhost:8000/ws"
+                            class="px-3 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                        />
+                    </div>
+                    <!-- Connection Status -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-600">Status:</span>
+                        <span id="statusBadge" class="px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-700">
+                            Disconnected
+                        </span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        id="connectBtn"
+                        class="px-3 py-1.5 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                        Connect
+                    </button>
+                    <button
+                        id="disconnectBtn"
+                        class="px-3 py-1.5 text-sm bg-red-500 text-white rounded hover:bg-red-600 hidden"
+                    >
+                        Disconnect
+                    </button>
+                    <button
+                        id="clearBtn"
+                        class="px-3 py-1.5 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                    >
+                        Clear Logs
+                    </button>
+                    <button
+                        id="copyBtn"
+                        class="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Copy All
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Log List -->
+                <div class="w-80 border-r bg-gray-50 flex flex-col">
+                    <!-- Filter -->
+                    <div class="p-2 border-b bg-white">
+                        <select
+                            id="typeFilter"
+                            class="w-full text-xs p-2 border rounded bg-white"
+                        >
+                            <option value="all">All Messages</option>
+                            <option value="exclude-audio">All Except Audio</option>
+                            <option value="transcript">Transcript Only</option>
+                            <option value="audio">Audio Only</option>
+                            <option value="system">System Only</option>
+                            <option value="clinical">Clinical Only</option>
+                            <option value="diagnosis">Diagnosis Only</option>
+                            <option value="questions">Questions Only</option>
+                        </select>
+                    </div>
+                    
+                    <div id="logList" class="flex-1 overflow-y-auto scrollbar-thin">
+                        <p class="p-4 text-gray-500 text-sm">No messages yet. Connect to start.</p>
+                    </div>
+                    
+                    <div class="p-2 border-t bg-white text-xs text-gray-600">
+                        Total: <span id="totalCount">0</span> | 
+                        Filtered: <span id="filteredCount">0</span>
+                    </div>
+                </div>
+
+                <!-- Detail View -->
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <div id="detailContent" class="flex-1 overflow-auto p-4 scrollbar-thin">
+                        <div class="flex items-center justify-center h-full text-gray-500">
+                            Select a message to view details
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Send Message Section -->
+            <div class="border-t p-4 bg-gray-50">
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Type message to send (or use quick actions)"
+                        class="flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                        id="sendBtn"
+                        class="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Send
+                    </button>
+                    <button
+                        id="sendStartBtn"
+                        class="px-4 py-2 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Send "start"
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let ws = null;
+        let logs = [];
+        let selectedLog = null;
+        let typeFilter = 'all';
+
+        // DOM Elements
+        const elements = {
+            wsUrl: document.getElementById('wsUrl'),
+            statusBadge: document.getElementById('statusBadge'),
+            connectBtn: document.getElementById('connectBtn'),
+            disconnectBtn: document.getElementById('disconnectBtn'),
+            clearBtn: document.getElementById('clearBtn'),
+            copyBtn: document.getElementById('copyBtn'),
+            typeFilter: document.getElementById('typeFilter'),
+            logList: document.getElementById('logList'),
+            detailContent: document.getElementById('detailContent'),
+            messageInput: document.getElementById('messageInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            sendStartBtn: document.getElementById('sendStartBtn'),
+            totalCount: document.getElementById('totalCount'),
+            filteredCount: document.getElementById('filteredCount')
+        };
+
+        // Update status badge
+        function updateStatus(status, message) {
+            const statusMap = {
+                disconnected: { class: 'bg-gray-200 text-gray-700', text: 'Disconnected' },
+                connecting: { class: 'bg-yellow-200 text-yellow-700', text: 'Connecting...' },
+                connected: { class: 'bg-green-200 text-green-700', text: 'Connected' },
+                error: { class: 'bg-red-200 text-red-700', text: 'Error' }
+            };
+            
+            const config = statusMap[status] || statusMap.disconnected;
+            elements.statusBadge.className = `px-2 py-1 text-xs font-medium rounded ${config.class}`;
+            elements.statusBadge.textContent = message || config.text;
+        }
+
+        // Add log entry
+        function addLog(direction, data, parsed = null, error = null) {
+            const log = {
+                id: Math.random().toString(36).substr(2, 9),
+                timestamp: new Date(),
+                direction,
+                raw: typeof data === 'string' ? data : JSON.stringify(data),
+                parsed,
+                error
+            };
+            
+            logs.push(log);
+            renderLogList();
+            
+            // Auto-scroll to bottom
+            const logList = elements.logList;
+            logList.scrollTop = logList.scrollHeight;
+        }
+
+        // Connect to WebSocket
+        function connect() {
+            const url = elements.wsUrl.value.trim();
+            if (!url) {
+                alert('Please enter a WebSocket URL');
+                return;
+            }
+
+            updateStatus('connecting');
+            elements.connectBtn.classList.add('hidden');
+            elements.disconnectBtn.classList.remove('hidden');
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus('connected');
+                    elements.sendBtn.disabled = false;
+                    elements.sendStartBtn.disabled = false;
+                    addLog('system', 'Connected to ' + url);
+                };
+
+                ws.onmessage = (event) => {
+                    console.log('Received:', event.data);
+                    
+                    let parsed = null;
+                    let error = null;
+                    
+                    try {
+                        parsed = JSON.parse(event.data);
+                    } catch (e) {
+                        error = 'JSON parse error: ' + e.message;
+                    }
+                    
+                    addLog('received', event.data, parsed, error);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('error', 'Connection Error');
+                    addLog('system', 'Error: ' + error);
+                };
+
+                ws.onclose = (event) => {
+                    console.log('WebSocket closed:', event);
+                    updateStatus('disconnected');
+                    elements.connectBtn.classList.remove('hidden');
+                    elements.disconnectBtn.classList.add('hidden');
+                    elements.sendBtn.disabled = true;
+                    elements.sendStartBtn.disabled = true;
+                    addLog('system', `Disconnected (code: ${event.code}, reason: ${event.reason || 'none'})`);
+                    ws = null;
+                };
+            } catch (e) {
+                console.error('Connection error:', e);
+                updateStatus('error', 'Failed to connect');
+                elements.connectBtn.classList.remove('hidden');
+                elements.disconnectBtn.classList.add('hidden');
+                alert('Failed to connect: ' + e.message);
+            }
+        }
+
+        // Disconnect
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        // Send message
+        function sendMessage(message) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Not connected');
+                return;
+            }
+
+            try {
+                ws.send(message);
+                addLog('sent', message);
+                elements.messageInput.value = '';
+            } catch (e) {
+                alert('Failed to send: ' + e.message);
+            }
+        }
+
+        // Filter logs
+        function getFilteredLogs() {
+            if (typeFilter === 'all') return logs;
+            
+            return logs.filter(log => {
+                if (log.direction === 'system' || log.direction === 'sent') return true;
+                if (!log.parsed) return false;
+                
+                if (typeFilter === 'exclude-audio') {
+                    return log.parsed.type !== 'audio';
+                }
+                
+                return log.parsed.type === typeFilter;
+            });
+        }
+
+        // Render log list
+        function renderLogList() {
+            const filteredLogs = getFilteredLogs();
+            
+            elements.totalCount.textContent = logs.length;
+            elements.filteredCount.textContent = filteredLogs.length;
+            
+            if (filteredLogs.length === 0) {
+                elements.logList.innerHTML = '<p class="p-4 text-gray-500 text-sm">No messages match filter.</p>';
+                return;
+            }
+
+            elements.logList.innerHTML = filteredLogs.map(log => {
+                const isSystem = log.direction === 'system';
+                const isSent = log.direction === 'sent';
+                const type = log.parsed?.type;
+                
+                return `
+                    <div
+                        class="log-item p-3 border-b cursor-pointer hover:bg-purple-50 ${
+                            selectedLog?.id === log.id ? 'bg-purple-100' : ''
+                        }"
+                        data-log-id="${log.id}"
+                    >
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${isSystem ? `
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                                    ⚙️ SYSTEM
+                                </span>
+                            ` : `
+                                <span class="text-xs px-1.5 py-0.5 rounded ${
+                                    isSent 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : 'bg-blue-100 text-blue-700'
+                                }">
+                                    ${isSent ? '↑ SENT' : '↓ RECV'}
+                                </span>
+                            `}
+                            ${type ? `
+                                <span class="text-xs px-1.5 py-0.5 rounded ${
+                                    type === 'transcript' ? 'bg-purple-100 text-purple-700' :
+                                    type === 'audio' ? 'bg-orange-100 text-orange-700' :
+                                    type === 'clinical' ? 'bg-teal-100 text-teal-700' :
+                                    type === 'diagnosis' ? 'bg-pink-100 text-pink-700' :
+                                    type === 'questions' ? 'bg-indigo-100 text-indigo-700' :
+                                    'bg-gray-100 text-gray-700'
+                                }">
+                                    ${type}
+                                </span>
+                            ` : ''}
+                            ${log.parsed?.speaker ? `
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                                    ${log.parsed.speaker}
+                                </span>
+                            ` : ''}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            ${log.timestamp.toLocaleTimeString()}
+                        </div>
+                        <div class="text-xs text-gray-600 mt-1 truncate">
+                            ${escapeHtml(
+                                log.parsed?.text || 
+                                log.parsed?.message || 
+                                (type === 'audio' ? '[audio data]' : log.raw.substring(0, 50))
+                            )}
+                        </div>
+                        ${log.error ? '<span class="text-xs text-red-500">⚠️ Parse Error</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.log-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const logId = item.getAttribute('data-log-id');
+                    selectLog(logId);
+                });
+            });
+        }
+
+        // Select log
+        function selectLog(logId) {
+            selectedLog = logs.find(log => log.id === logId);
+            renderDetailView();
+        }
+
+        // Render detail view
+        function renderDetailView() {
+            if (!selectedLog) {
+                elements.detailContent.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-500">
+                        Select a message to view details
+                    </div>
+                `;
+                return;
+            }
+
+            const log = selectedLog;
+            const isSystem = log.direction === 'system';
+
+            elements.detailContent.innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3 mb-4">
+                        ${isSystem ? `
+                            <span class="text-sm px-2 py-1 rounded font-medium bg-gray-100 text-gray-700">
+                                ⚙️ System Message
+                            </span>
+                        ` : `
+                            <span class="text-sm px-2 py-1 rounded font-medium ${
+                                log.direction === 'sent' 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-blue-100 text-blue-700'
+                            }">
+                                ${log.direction === 'sent' ? '↑ Sent' : '↓ Received'}
+                            </span>
+                        `}
+                        <span class="text-sm text-gray-500">
+                            ${log.timestamp.toLocaleString()}
+                        </span>
+                    </div>
+                    
+                    ${log.error ? `
+                        <div class="bg-red-50 border border-red-200 p-4 rounded">
+                            <h3 class="font-semibold text-sm text-red-700 mb-2">Parse Error</h3>
+                            <p class="text-red-600 text-sm">${escapeHtml(log.error)}</p>
+                        </div>
+                    ` : ''}
+                    
+                    <div>
+                        <h3 class="font-semibold text-sm text-gray-700 mb-2">Raw Message</h3>
+                        <pre class="bg-gray-900 text-cyan-400 p-4 rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap">${escapeHtml(log.raw)}</pre>
+                    </div>
+                    
+                    ${log.parsed ? `
+                        <div>
+                            <h3 class="font-semibold text-sm text-gray-700 mb-2">Parsed Message</h3>
+                            <pre class="bg-gray-900 text-purple-400 p-4 rounded text-xs overflow-auto whitespace-pre-wrap">${escapeHtml(JSON.stringify(log.parsed, null, 2))}</pre>
+                        </div>
+                    ` : ''}
+                    
+                    ${log.parsed?.type === 'transcript' && log.parsed.highlights ? `
+                        <div>
+                            <h3 class="font-semibold text-sm text-gray-700 mb-2">Highlights</h3>
+                            <div class="space-y-2">
+                                ${log.parsed.highlights.map(h => `
+                                    <div class="p-2 rounded ${
+                                        h.level === 'warning' ? 'bg-yellow-50 border border-yellow-200' : 'bg-blue-50 border border-blue-200'
+                                    }">
+                                        <span class="text-xs font-medium ${
+                                            h.level === 'warning' ? 'text-yellow-700' : 'text-blue-700'
+                                        }">${h.level.toUpperCase()}</span>
+                                        <p class="text-sm mt-1">${escapeHtml(h.text)}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${log.parsed?.type === 'diagnosis' && log.parsed.data ? `
+                        <div>
+                            <h3 class="font-semibold text-sm text-gray-700 mb-2">Diagnoses</h3>
+                            <div class="space-y-2">
+                                ${log.parsed.data.map(d => `
+                                    <div class="p-3 border rounded">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="font-medium">${escapeHtml(d.diagnosis)}</span>
+                                            <span class="text-xs px-2 py-1 rounded ${
+                                                d.probability === 'High' ? 'bg-red-100 text-red-700' :
+                                                d.probability === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-gray-100 text-gray-700'
+                                            }">${d.probability}</span>
+                                        </div>
+                                        <div class="text-xs text-gray-600">
+                                            Rank: ${d.rank} | Indicators: ${d.indicators_count}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${log.parsed?.type === 'questions' && log.parsed.data ? `
+                        <div>
+                            <h3 class="font-semibold text-sm text-gray-700 mb-2">Questions</h3>
+                            <div class="space-y-2">
+                                ${log.parsed.data.map(q => `
+                                    <div class="p-3 border rounded">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">${q.role}</span>
+                                            ${q.status ? `<span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">${q.status}</span>` : ''}
+                                        </div>
+                                        <p class="text-sm">${escapeHtml(q.content)}</p>
+                                        <div class="text-xs text-gray-600 mt-2">
+                                            Score: ${q.score} | Rank: ${q.rank}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event Handlers
+        elements.connectBtn.addEventListener('click', connect);
+        elements.disconnectBtn.addEventListener('click', disconnect);
+
+        elements.clearBtn.addEventListener('click', () => {
+            if (confirm('Clear all logs?')) {
+                logs = [];
+                selectedLog = null;
+                renderLogList();
+                renderDetailView();
+            }
+        });
+
+        elements.copyBtn.addEventListener('click', () => {
+            const filteredLogs = getFilteredLogs();
+            navigator.clipboard.writeText(JSON.stringify(filteredLogs, null, 2))
+                .then(() => alert(`${filteredLogs.length} logs copied to clipboard!`))
+                .catch(err => alert('Failed to copy: ' + err.message));
+        });
+
+        elements.typeFilter.addEventListener('change', (e) => {
+            typeFilter = e.target.value;
+            renderLogList();
+        });
+
+        elements.sendBtn.addEventListener('click', () => {
+            const message = elements.messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+            }
+        });
+
+        elements.sendStartBtn.addEventListener('click', () => {
+            sendMessage('start');
+        });
+
+        elements.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                elements.sendBtn.click();
+            }
+        });
+
+        // Initialize
+        renderLogList();
+        renderDetailView();
+    </script>
+</body>
+</html>

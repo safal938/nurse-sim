@@ -1,0 +1,5 @@
+{
+  "name": "NeuroFlow - Clinical Decision Support",
+  "description": "A real-time nurse-patient simulation dashboard with dynamic decision trees and AI-driven clinical context generation.",
+  "requestFramePermissions": []
+}

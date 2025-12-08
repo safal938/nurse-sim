@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedForce AI Simulation</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+        button:disabled { background: #ccc; }
+        button.stop { background: #dc3545; }
+        
+        #chat-container { 
+            background: white; border-radius: 10px; padding: 20px; height: 500px; overflow-y: auto; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px;
+        }
+        .message { padding: 10px 15px; border-radius: 15px; max-width: 80%; line-height: 1.4; }
+        .message.NURSE { align-self: flex-start; background: #e3f2fd; color: #0d47a1; border-bottom-left-radius: 2px; }
+        .message.PATIENT { align-self: flex-end; background: #e8f5e9; color: #1b5e20; border-bottom-right-radius: 2px; }
+        .speaker-label { font-size: 0.8em; font-weight: bold; margin-bottom: 4px; display: block; }
+        .system-msg { text-align: center; color: #666; font-style: italic; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <h1>🏥 Nurse-Patient Simulation</h1>
+    
+    <div class="controls">
+        <button id="startBtn" onclick="startSimulation()">Start Simulation</button>
+        <button id="stopBtn" class="stop" onclick="stopSimulation()" disabled>Stop</button>
+    </div>
+
+    <div id="chat-container"></div>
+
+    <script>
+        let socket;
+        let audioContext;
+        let nextStartTime = 0;
+        const chatContainer = document.getElementById('chat-container');
+
+        async function startSimulation() {
+            // 1. Initialize Audio Context (Must be done after user gesture)
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            } else if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            // 2. Connect WebSocket
+            socket = new WebSocket("ws://localhost:8000/ws/simulation");
+
+            socket.onopen = () => {
+                console.log("Connected");
+                socket.send("start");
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                addSystemMessage("Connecting to Gemini...");
+            };
+
+            socket.onmessage = async (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === "transcript") {
+                    addMessage(msg.speaker, msg.text);
+                } 
+                else if (msg.type === "audio") {
+                    playPcmAudio(msg.data);
+                }
+                else if (msg.type === "system") {
+                    addSystemMessage(msg.message);
+                }
+            };
+
+            socket.onclose = () => {
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                addSystemMessage("Simulation Ended.");
+            };
+        }
+
+        function stopSimulation() {
+            if (socket) socket.close();
+            if (audioContext) audioContext.close();
+            audioContext = null;
+        }
+
+        function addMessage(speaker, text) {
+            const div = document.createElement('div');
+            div.className = `message ${speaker}`;
+            div.innerHTML = `<span class="speaker-label">${speaker}</span>${text}`;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'system-msg';
+            div.innerText = text;
+            chatContainer.appendChild(div);
+        }
+
+        // --- AUDIO PROCESSING ---
+        // Converts Base64 -> Raw PCM -> AudioBuffer -> Plays
+        function playPcmAudio(base64Data) {
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            
+            // Create Int16 Array from binary string (PCM 16-bit)
+            const int16Data = new Int16Array(len / 2);
+            for (let i = 0; i < len; i += 2) {
+                // Little Endian conversion
+                const low = binaryString.charCodeAt(i);
+                const high = binaryString.charCodeAt(i + 1);
+                int16Data[i / 2] = (high << 8) | low;
+            }
+
+            // Convert Int16 to Float32 (Required by Web Audio API)
+            const float32Data = new Float32Array(int16Data.length);
+            for (let i = 0; i < int16Data.length; i++) {
+                // Normalize to -1.0 to 1.0
+                float32Data[i] = int16Data[i] / 32768.0; 
+            }
+
+            // Schedule Playback
+            const buffer = audioContext.createBuffer(1, float32Data.length, 24000);
+            buffer.getChannelData(0).set(float32Data);
+
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+
+            // Ensure smooth queuing (no gaps, no overlaps)
+            const currentTime = audioContext.currentTime;
+            if (nextStartTime < currentTime) {
+                nextStartTime = currentTime;
+            }
+            source.start(nextStartTime);
+            nextStartTime += buffer.duration;
+        }
+    </script>
+</body>
+</html>
