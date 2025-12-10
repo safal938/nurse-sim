@@ -13,7 +13,8 @@ import { Message, ChecklistItem, PatientData, DiagnosisOption } from './types';
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Backend WebSocket URL - change this to your Python backend
-const WEBSOCKET_URL = "wss://clinic-hepa-backend-481780815788.us-central1.run.app/ws/simulation";
+// const WEBSOCKET_URL = "wss://clinic-hepa-backend-481780815788.us-central1.run.app/ws/simulation";
+const WEBSOCKET_URL = "ws://127.0.0.1:8000/ws/simulation";
 
 // Mode: 'websocket' for real backend, 'gemini' for direct Gemini API
 type SimulationMode = 'websocket' | 'gemini';
@@ -189,7 +190,7 @@ const App: React.FC = () => {
     const startWebSocketSimulation = async () => {
         // Reset audio timing before starting new simulation
         websocketService.resetAudioTiming();
-        const connected = await websocketService.connect();
+        const connected = await websocketService.connect(patientData.patient_id, patientData.gender);
         if (connected) {
             setIsSimulationActive(true);
             setTimerStarted(true);

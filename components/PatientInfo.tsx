@@ -48,22 +48,22 @@ const PatientInfo: React.FC<Props> = ({ data, isOpen, onToggle, onChangeScenario
                     <div className="px-6 pb-6 pt-2 border-b border-gray-100 bg-white">
                         <div className="flex items-center space-x-3 mb-4">
                             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl flex-shrink-0">
-                                {data.patient.name.charAt(0)}
+                                {data.name.charAt(0)}
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-xl font-bold text-gray-900 truncate">{data.patient.name}</h2>
-                                <p className="text-sm text-gray-500 truncate">MRN: {data.patient.identifiers.mrn}</p>
+                                <h2 className="text-xl font-bold text-gray-900 truncate">{data.name}</h2>
+                                <p className="text-sm text-gray-500 truncate">ID: {data.patient_id}</p>
                             </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-gray-500 text-xs uppercase tracking-wide">DOB</p>
-                                <p className="font-medium whitespace-nowrap">{data.patient.date_of_birth}</p>
+                                <p className="text-gray-500 text-xs uppercase tracking-wide">Complaint</p>
+                                <p className="font-medium">{data.complaint}</p>
                             </div>
                             <div>
                                 <p className="text-gray-500 text-xs uppercase tracking-wide">Age/Sex</p>
-                                <p className="font-medium whitespace-nowrap">{data.patient.age} / {data.patient.sex}</p>
+                                <p className="font-medium whitespace-nowrap">{data.age} / {data.gender}</p>
                             </div>
                         </div>
                     </div>
@@ -72,31 +72,31 @@ const PatientInfo: React.FC<Props> = ({ data, isOpen, onToggle, onChangeScenario
                         <div>
                             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Risk Status</h3>
                             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                data.riskLevel === 'high' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                data.severity === 'High' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
                             }`}>
                                 <span className={`w-2 h-2 rounded-full mr-2 ${
-                                    data.riskLevel === 'high' ? 'bg-red-500' : 'bg-amber-500'
+                                    data.severity === 'High' ? 'bg-red-500' : 'bg-amber-500'
                                 }`}></span>
-                                {data.riskLevel.toUpperCase()} RISK
+                                {data.severity.toUpperCase()} RISK
                             </div>
                         </div>
 
                         <div>
                             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Presenting Diagnosis</h3>
                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-slate-800 text-sm leading-relaxed font-medium">
-                                {data.primaryDiagnosis}
+                                {data.complaint}
                             </div>
                         </div>
 
                         <div>
                             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Active Problems</h3>
                             <ul className="space-y-2">
-                                {data.problem_list.map((problem, idx) => (
+                                {data.medical_history.map((problem: any, idx: number) => (
                                     <li key={idx} className="flex items-start space-x-2 text-sm text-gray-600 bg-white border border-gray-100 p-2 rounded">
                                         <svg className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <span>{problem.name}</span>
+                                        <span>{problem}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -106,13 +106,13 @@ const PatientInfo: React.FC<Props> = ({ data, isOpen, onToggle, onChangeScenario
             ) : (
                 // COLLAPSED VIEW
                 <div className="flex-1 flex flex-col items-center pt-4 space-y-6">
-                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg cursor-pointer" title={data.patient.name}>
-                        {data.patient.name.charAt(0)}
+                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg cursor-pointer" title={data.name}>
+                        {data.name.charAt(0)}
                     </div>
                     
-                    <div className="flex flex-col items-center space-y-2 w-full" title={`Status: ${data.riskLevel}`}>
+                    <div className="flex flex-col items-center space-y-2 w-full" title={`Status: ${data.severity}`}>
                         <div className={`w-3 h-3 rounded-full ${
-                             data.riskLevel === 'high' ? 'bg-red-500 animate-pulse' : 'bg-amber-500'
+                             data.severity === 'High' ? 'bg-red-500 animate-pulse' : 'bg-amber-500'
                         }`}></div>
                     </div>
 
