@@ -44,7 +44,7 @@ export interface TranscriptHighlight {
 }
 
 export interface WebSocketMessage {
-    type: 'transcript' | 'audio' | 'system' | 'clinical' | 'diagnosis' | 'questions';
+    type: 'transcript' | 'audio' | 'system' | 'clinical' | 'diagnosis' | 'questions' | 'start';
     speaker?: 'NURSE' | 'PATIENT';
     text?: string;
     message?: string;
@@ -140,7 +140,7 @@ class WebSocketService {
     }
 
     // Connect to WebSocket server
-    async connect(): Promise<boolean> {
+    async connect(patientId: string, gender: string): Promise<boolean> {
         if (!this.backendUrl) {
             console.error("Backend URL not set");
             return false;
@@ -162,16 +162,21 @@ class WebSocketService {
                     console.log("WebSocket connected");
                     this.callbacks?.onStatusChange('connected');
                     // Send start command
-                    const startCmd = "start";
+                    const startCmd = {
+                        type: "start",
+                        patient_id: patientId,
+                        gender: gender
+                    };
+                    const startCmdString = JSON.stringify(startCmd);
                     wsDebugLogs.push({
                         id: Math.random().toString(36).substr(2, 9),
                         timestamp: new Date(),
                         direction: 'sent',
-                        raw: startCmd,
-                        parsed: null,
+                        raw: startCmdString,
+                        parsed: startCmd as any,
                         error: null
                     });
-                    this.socket?.send(startCmd);
+                    this.socket?.send(startCmdString);
                     this.callbacks?.onSystem("Initializing simulation...");
                     resolve(true);
                 };

@@ -19,7 +19,7 @@ const ScenarioSelector: React.FC<Props> = ({ scenarios, onSelect }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                     {scenarios.map((scenario) => (
                         <button
-                            key={scenario.id}
+                            key={scenario.patient_id}
                             onClick={() => onSelect(scenario)}
                             className="flex flex-col text-left bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group relative overflow-hidden"
                         >
@@ -32,17 +32,17 @@ const ScenarioSelector: React.FC<Props> = ({ scenarios, onSelect }) => {
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                        {scenario.patient.name.charAt(0)}
+                                        {scenario.name.charAt(0)}
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-800">{scenario.patient.name}</h3>
-                                        <p className="text-sm text-slate-500">{scenario.patient.age}y / {scenario.patient.sex}</p>
+                                        <h3 className="text-lg font-bold text-slate-800">{scenario.name}</h3>
+                                        <p className="text-sm text-slate-500">{scenario.age}y / {scenario.gender}</p>
                                     </div>
                                 </div>
                                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                                    scenario.riskLevel === 'high' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                    scenario.severity === 'High' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
                                 }`}>
-                                    {scenario.riskLevel} Risk
+                                    {scenario.severity} Risk
                                 </span>
                             </div>
 
@@ -50,16 +50,16 @@ const ScenarioSelector: React.FC<Props> = ({ scenarios, onSelect }) => {
                                 <div>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Presenting Complaint</p>
                                     <p className="text-sm text-slate-700 bg-slate-50 p-2 rounded border border-slate-100">
-                                        {scenario.primaryDiagnosis}
+                                        {scenario.complaint}
                                     </p>
                                 </div>
                                 
                                 <div>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Medical History</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {scenario.problem_list.slice(0, 3).map((p, i) => (
+                                        {scenario.medical_history.slice(0, 3).map((p: any, i: number) => (
                                             <span key={i} className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded-full border border-slate-100">
-                                                {p.name}
+                                                {p}
                                             </span>
                                         ))}
                                     </div>
