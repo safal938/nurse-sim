@@ -138,43 +138,42 @@ const App: React.FC = () => {
                 }
             },
             onDiagnoses: (diagnoses: BackendDiagnosis[]) => {
-                console.log("Diagnoses received:", diagnoses.length);
-                // The clinical data corresponds to the conversation that just happened
-                // We need to wait for those messages to appear in the UI
-                // Add a small delay (3 seconds) to ensure the patient response is visible
-                setTimeout(() => {
-                    console.log(`[SYNC] Applying diagnoses update (delayed)`);
-                    
-                    // Sort by indicators_count (highest first)
-                    const sorted = [...diagnoses].sort((a, b) => b.indicators_count - a.indicators_count);
-                    
-                    if (sorted.length > 0) {
-                        setPrimaryDiagnosis(transformDiagnosis(sorted[0]));
-                        console.log(`Primary: ${sorted[0].diagnosis} (${sorted[0].indicators_count} indicators)`);
-                    }
-                    if (sorted.length > 1) {
-                        setSecondaryDiagnosis(transformDiagnosis(sorted[1]));
-                        console.log(`Secondary: ${sorted[1].diagnosis} (${sorted[1].indicators_count} indicators)`);
-                    }
-                }, 3000);
+                console.log("[TURN] 🎯 APP CALLBACK: onDiagnoses called - UPDATING UI NOW");
+                console.log("[TURN] 🎯 Received", diagnoses.length, "diagnoses");
+                
+                // Sort by indicators_count (highest first)
+                const sorted = [...diagnoses].sort((a, b) => b.indicators_count - a.indicators_count);
+                
+                if (sorted.length > 0) {
+                    console.log(`[TURN] 🎯 Setting Primary: ${sorted[0].diagnosis} (${sorted[0].indicators_count} indicators)`);
+                    setPrimaryDiagnosis(transformDiagnosis(sorted[0]));
+                }
+                if (sorted.length > 1) {
+                    console.log(`[TURN] 🎯 Setting Secondary: ${sorted[1].diagnosis} (${sorted[1].indicators_count} indicators)`);
+                    setSecondaryDiagnosis(transformDiagnosis(sorted[1]));
+                }
             },
             onQuestions: (questions: BackendQuestion[]) => {
-                console.log("Questions received:", questions.length);
-                // Add a small delay (3 seconds) to ensure the patient response is visible
-                setTimeout(() => {
-                    console.log(`[SYNC] Applying questions update (delayed)`);
-                    
-                    const transformed = transformQuestions(questions);
-                    console.log(`[SYNC] Transformed questions:`, transformed.map(q => ({ 
-                        id: q.id, 
-                        text: q.text.substring(0, 50), 
-                        completed: q.isCompleted 
-                    })));
-                    
-                    // Replace the entire checklist with backend state
-                    // Backend sends complete state, not incremental updates
-                    setChecklist(transformed);
-                }, 3000);
+                console.log("[TURN] 📋 APP CALLBACK: onQuestions called - UPDATING UI NOW");
+                console.log("[TURN] 📋 Received", questions.length, "questions");
+                
+                const transformed = transformQuestions(questions);
+                console.log(`[TURN] 📋 Transformed questions:`, transformed.map(q => ({ 
+                    id: q.id, 
+                    text: q.text.substring(0, 50), 
+                    completed: q.isCompleted 
+                })));
+                
+                // Replace the entire checklist with backend state
+                // Backend sends complete state, not incremental updates
+                setChecklist(transformed);
+            },
+            onTurnCycle: (status) => {
+                console.log(`[TURN] Turn cycle event: ${status}`);
+                if (status === 'end') {
+                    // Simulation ended by backend
+                    setIsSimulationActive(false);
+                }
             },
             onStatusChange: (status) => {
                 setConnectionStatus(status);
