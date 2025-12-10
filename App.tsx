@@ -14,7 +14,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Backend WebSocket URL - change this to your Python backend
 // const WEBSOCKET_URL = "wss://clinic-hepa-backend-481780815788.us-central1.run.app/ws/simulation";
-const WEBSOCKET_URL = "ws://127.0.0.1:8000/ws/simulation";
+const WEBSOCKET_URL = "wss://clinic-hepa-backend-481780815788.us-central1.run.app/ws/simulation";
 
 // Mode: 'websocket' for real backend, 'gemini' for direct Gemini API
 type SimulationMode = 'websocket' | 'gemini';
